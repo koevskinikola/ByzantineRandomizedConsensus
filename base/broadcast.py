@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from enum import Enum
+import socket, json
 
 
 class Broadcast(metaclass=ABCMeta):
@@ -8,23 +8,40 @@ class Broadcast(metaclass=ABCMeta):
     The 'propose' and 'decide' methods need to be defined
     """
 
-    class MessageType(Enum):
-        SEND = 1
-        ECHO = 2
-        READY = 3
+    BUFFER_SIZE = 1024
 
-    def __init__(self, node_number, faulty_nodes):
-        self.N = node_number
-        self.f = faulty_nodes
+    def __init__(self, peer_list):
+        self.peers = peer_list
 
-    @abstractmethod
-    def broadcast(self, message):
-        pass
+    def broadcast(self, message_type, message):
+        """
+        Sends a message to all of the nodes in the network.
+
+        :param message_type: The type of message to be sent.
+        :param message: The message to be sent.
+        :return:
+        """
+
+        def _broadcast(final_msg):
+
+            final_msg = final_msg.encode('utf-8')
+
+            for addr in self.peers:
+                broadcast_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                broadcast_client.connect(addr)
+                broadcast_client.sendall(final_msg)
+                broadcast_client.shutdown(socket.SHUT_RD)
+                broadcast_client.close()
+
+        message = {"source": socket.gethostname(), "type": message_type, "message": message}
+        message = json.dumps(message)
+
+        _broadcast(message)
 
     @abstractmethod
     def broadcast_listener(self):
         pass
 
     @abstractmethod
-    def deliver(self, sender, message):
+    def deliver(self, message):
         pass
