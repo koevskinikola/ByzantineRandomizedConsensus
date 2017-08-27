@@ -1,14 +1,19 @@
 from base.broadcast import Broadcast
-import json, threading, socket, queue
+from enum import Enum
+import json
+import threading
+import socket
 
 
-class ByzantineReliableBroadcast(Broadcast):
+class BRBroadcast(Broadcast):
     """
     Implements a Byzantine Fault Tolerant Reliable Broadcast protocol.
     """
 
-    BUFFER_SIZE = 1024
-
+    class MessageType(Enum):
+        SEND = 1
+        ECHO = 2
+        READY = 3
 
     def __init__(self, total_nodes, faulty_nodes, host_port, peer_list):
         """
@@ -23,10 +28,11 @@ class ByzantineReliableBroadcast(Broadcast):
         # Make sure that N > 3f
         assert total_nodes > 3*faulty_nodes
 
-        super().__init__(total_nodes, faulty_nodes)
+        super().__init__(peer_list)
 
+        self.N = total_nodes
+        self.f = faulty_nodes
         self.port = host_port
-        self.peers = peer_list
 
         # Check if echo has been sent and collect echo messages
         self.echo_sent_list = dict()
@@ -37,35 +43,9 @@ class ByzantineReliableBroadcast(Broadcast):
         # Keep delivered messages
         self.delivered_msgs = list()
 
-    def broadcast(self, type, message):
-        """
-        Sends a message to all of the nodes in the network.
-
-        :param message: The message to be sent.
-        :return:
-        """
-
-        def _broadcast(final_msg):
-
-            final_msg = final_msg.encode('utf-8')
-
-            for addr in self.peers:
-                broadcast_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                broadcast_client.connect(addr)
-                broadcast_client.sendall(final_msg)
-                broadcast_client.shutdown(socket.SHUT_RD)
-                broadcast_client.close()
-
-        message = {"source": socket.gethostname(), "type": type, "message": message}
-        message = json.dumps(message)
-
-        _broadcast(message)
-
-
-
     def _broadcast_listener(self):
         """
-        A TCP socket server for listening to incomming messages
+        A TCP socket server for listening to incoming messages
 
         :return:
         """
@@ -74,13 +54,13 @@ class ByzantineReliableBroadcast(Broadcast):
 
         host = socket.gethostname()
         broadcast_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        broadcast_server.bind(host, self.port)
+        broadcast_server.bind((host, self.port))
         broadcast_server.listen(3 * self.N)
 
         # do accepts in separate thread
         while server_listening:
             client, address = broadcast_server.accept()
-            message = client.recv(ByzantineReliableBroadcast.BUFFER_SIZE)
+            message = client.recv(BRBroadcast.BUFFER_SIZE)
             if not message:
                 print("Message was empty")
             dict_msg = json.loads(message)
@@ -93,18 +73,18 @@ class ByzantineReliableBroadcast(Broadcast):
             # if msg not already delivered
             if dict_msg["message"] not in self.delivered_msgs:
 
-                if dict_msg["type"] == Broadcast.MessageType.SEND and not self.echo_sent_list.has_key(dict_msg["message"]):
+                if dict_msg["type"] == BRBroadcast.MessageType.SEND and dict_msg["message"] not in self.echo_sent_list:
 
                     # insert message in dictionary (set ECHO flag to sent)
                     self.echo_sent_list[dict_msg["message"]] = set()
 
                     # broadcast ECHO msg
-                    self.broadcast(Broadcast.MessageType.ECHO, dict_msg["message"])
+                    self.broadcast(BRBroadcast.MessageType.ECHO, dict_msg["message"])
 
-                elif dict_msg["type"] == Broadcast.MessageType.ECHO:
+                elif dict_msg["type"] == BRBroadcast.MessageType.ECHO:
 
                     # in case a SEND msg was not received, but ECHO received
-                    if not self.echo_sent_list.has_key(dict_msg["message"]):
+                    if dict_msg["message"] not in self.echo_sent_list:
                         self.echo_sent_list[dict_msg["message"]] = set()
                         self.echo_sent_list[dict_msg["message"]].add(peer_address)
 
@@ -112,15 +92,15 @@ class ByzantineReliableBroadcast(Broadcast):
                         self.echo_sent_list[dict_msg["message"]].add(peer_address)
 
                         # if more than (N+f)/2 ECHO msgs received, send READY msg
-                        if len(self.echo_sent_list[dict_msg["message"]]) > (self.N + self.f) / 2 and not self.ready_sent_list.has_key(dict_msg["message"]):
+                        if len(self.echo_sent_list[dict_msg["message"]]) > (self.N + self.f) / 2 and dict_msg["message"] not in self.ready_sent_list:
                             self.ready_sent_list[dict_msg["message"]] = set()
                             # broadcast ready msg
-                            self.broadcast(Broadcast.MessageType.READY, dict_msg["message"])
+                            self.broadcast(BRBroadcast.MessageType.READY, dict_msg["message"])
 
-                elif dict_msg["type"] == Broadcast.MessageType.READY:
+                elif dict_msg["type"] == BRBroadcast.MessageType.READY:
 
                     # in case a SEND and ECHO msgs were not received, but READY received
-                    if not self.ready_sent_list.has_key(dict_msg["message"]):
+                    if dict_msg["message"] not in self.ready_sent_list:
                         self.ready_sent_list[dict_msg["message"]] = set()
                         self.ready_sent_list[dict_msg["message"]].add(peer_address)
 
@@ -132,10 +112,8 @@ class ByzantineReliableBroadcast(Broadcast):
                             self.deliver(dict_msg["message"])
 
                         # in case a SEND and ECHO msgs were not received, but f READY msgs received, send READY msg
-                        elif not self.echo_sent_list.has_key(dict_msg["message"]) and len(self.ready_sent_list[dict_msg["message"]]) > self.f:
-                            self.broadcast(Broadcast.MessageType.READY, dict_msg["message"])
-
-
+                        elif dict_msg["message"] not in self.echo_sent_list and len(self.ready_sent_list[dict_msg["message"]]) > self.f:
+                            self.broadcast(BRBroadcast.MessageType.READY, dict_msg["message"])
 
     def broadcast_listener(self):
         """
@@ -150,7 +128,6 @@ class ByzantineReliableBroadcast(Broadcast):
         """
         Delivers a message sent from another node in the network
 
-        :param sender: The sender's ID
         :param message: The message to be delivered.
         :return:
         """
