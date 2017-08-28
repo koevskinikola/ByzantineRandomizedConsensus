@@ -1,4 +1,5 @@
 from base.broadcast import Broadcast
+from enum import Enum
 import json, threading, socket
 
 
@@ -8,6 +9,9 @@ class BEBroadcast(Broadcast):
     """
 
     SERVER_QUEUE = 10
+
+    class MessageType(Enum):
+        SEND = 1
 
     def __init__(self, host_port, peer_list, consensus_instance):
         super().__init__(peer_list)
@@ -37,7 +41,7 @@ class BEBroadcast(Broadcast):
             dict_msg = json.loads(message)
 
             # DELIVER msg to consensus instance
-            self.consensus.deliver((address, dict_msg["message"]))
+            self.consensus.deliver(dict_msg["message"])
 
     def broadcast_listener(self):
         threading.Thread(target=self._broadcast_listener).start()

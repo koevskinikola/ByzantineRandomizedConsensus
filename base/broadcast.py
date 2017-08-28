@@ -45,9 +45,10 @@ class Broadcast(metaclass=ABCMeta):
 
 class IBroadcastHandler(metaclass=ABCMeta):
     """
-    An interface for providing the deliver event of a broadcast protocol
+    An interface for providing the DELIVER event of a broadcast protocol
     """
 
     @abstractmethod
     def deliver(self, message):
+        # raise NotImplementedError("Method 'deliver' needs to be implemented")
         pass
