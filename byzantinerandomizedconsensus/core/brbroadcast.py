@@ -1,8 +1,9 @@
-from base.broadcast import Broadcast
-from enum import Enum
 import json
-import threading
 import socket
+import threading
+from enum import Enum
+
+from base.broadcast import Broadcast
 
 
 class BRBroadcast(Broadcast):

@@ -1,10 +1,11 @@
-from base.consensus import Consensus
-from base.broadcast import IBroadcastHandler
-from core.brbroadcast import BRBroadcast
-from enum import Enum
 import queue
-import socket
 import random
+import socket
+from enum import Enum
+
+from base.broadcast import IBroadcastHandler
+from base.consensus import Consensus
+from core.brbroadcast import BRBroadcast
 
 
 class ByzantineRandomizedConsensus(Consensus, IBroadcastHandler):
@@ -21,7 +22,7 @@ class ByzantineRandomizedConsensus(Consensus, IBroadcastHandler):
 
         assert total_nodes > 5*faulty_nodes, "Number of nodes doesn't satisfy N>5f assumption"
 
-        self.message_queue = queue.Queue()
+        self.message_queue = queue.Queue(20)
         self.N = total_nodes
         self.f = faulty_nodes
         self.round = 0
@@ -32,10 +33,17 @@ class ByzantineRandomizedConsensus(Consensus, IBroadcastHandler):
         self.brb = BRBroadcast(total_nodes, faulty_nodes, brb_port, peer_list, self)
         self.consensus_user = consensus_user
 
+        # Start BRBroadcast server
+        self.brb.broadcast_listener()
+
         # for local testing
         self.host_address = socket.gethostname() + ":" + self.brb.port
         # for general use
         # self.host_address = socket.gethostname()
+
+    def start(self):
+        proposal = self.message_queue.get_nowait()
+        self.propose(proposal)
 
     def propose(self, message):
 
