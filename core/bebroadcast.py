@@ -2,17 +2,21 @@ from base.broadcast import Broadcast
 import json, threading, socket
 
 
-class BestEffortBroadcast(Broadcast):
+class BEBroadcast(Broadcast):
+    """
+    Implements a Best Effort Broadcast protocol.
+    """
 
     SERVER_QUEUE = 10
 
-    def __init__(self, host_port, peer_list):
+    def __init__(self, host_port, peer_list, consensus_instance):
         super().__init__(peer_list)
         self.port = host_port
+        self.consensus = consensus_instance
 
     def _broadcast_listener(self):
         """
-        A TCP socket server for listening to incomming messages
+        A TCP socket server for listening to incoming messages
 
         :return:
         """
@@ -21,7 +25,7 @@ class BestEffortBroadcast(Broadcast):
 
         host = socket.gethostname()
         broadcast_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        broadcast_server.bind(host, self.port)
+        broadcast_server.bind((host, self.port))
         broadcast_server.listen(self.SERVER_QUEUE)
 
         # do accepts in separate thread
@@ -32,13 +36,13 @@ class BestEffortBroadcast(Broadcast):
                 print("Message was empty")
             dict_msg = json.loads(message)
 
-            # for local testing
-            peer_address = address[0] + ":" + address[1]
-            # for general use
-            # peer_address = address[0]
+            # DELIVER msg to consensus instance
+            self.consensus.deliver((address, dict_msg["message"]))
 
     def broadcast_listener(self):
         threading.Thread(target=self._broadcast_listener).start()
 
-    def deliver(self, sender, message):
+    def deliver(self, message):
         pass
+
+

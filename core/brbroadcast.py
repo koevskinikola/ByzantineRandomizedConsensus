@@ -15,7 +15,7 @@ class BRBroadcast(Broadcast):
         ECHO = 2
         READY = 3
 
-    def __init__(self, total_nodes, faulty_nodes, host_port, peer_list):
+    def __init__(self, total_nodes, faulty_nodes, host_port, peer_list, consensus_instance):
         """
         Constructs an instance of the Byzantine Reliable Broadcast protocol class.
 
@@ -23,6 +23,7 @@ class BRBroadcast(Broadcast):
         :param faulty_nodes: The maximum number of nodes that may be faulty in the network.
         :param host_port: The port where the instance can be reached.
         :param peer_list: A list of addresses for the rest of the nodes in the network. List of: [(ip, port)}
+        :param consensus_instance: The consensus instance for which broadcast is made
         """
 
         # Make sure that N > 3f
@@ -33,6 +34,7 @@ class BRBroadcast(Broadcast):
         self.N = total_nodes
         self.f = faulty_nodes
         self.port = host_port
+        self.consensus = consensus_instance
 
         # Check if echo has been sent and collect echo messages
         self.echo_sent_list = dict()
@@ -107,9 +109,12 @@ class BRBroadcast(Broadcast):
                     else:
                         self.ready_sent_list[dict_msg["message"]].add(peer_address)
 
-                        # if 2f READY msgs received, deliver msg
+                        # if 2f READY msgs received, DELIVER msg
                         if len(self.ready_sent_list[dict_msg["message"]]) > 2*self.f:
-                            self.deliver(dict_msg["message"])
+                            self.delivered_msgs.append(dict_msg["message"])
+
+                            # DELIVER msg to consensus instance
+                            self.consensus.deliver(dict_msg["message"])
 
                         # in case a SEND and ECHO msgs were not received, but f READY msgs received, send READY msg
                         elif dict_msg["message"] not in self.echo_sent_list and len(self.ready_sent_list[dict_msg["message"]]) > self.f:
@@ -123,13 +128,3 @@ class BRBroadcast(Broadcast):
         :return:
         """
         threading.Thread(target=self._broadcast_listener).start()
-
-    def deliver(self, message):
-        """
-        Delivers a message sent from another node in the network
-
-        :param message: The message to be delivered.
-        :return:
-        """
-
-        self.delivered_msgs.append(message)
