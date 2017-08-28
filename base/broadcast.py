@@ -33,7 +33,7 @@ class Broadcast(metaclass=ABCMeta):
                 broadcast_client.shutdown(socket.SHUT_RD)
                 broadcast_client.close()
 
-        message = {"source": socket.gethostname(), "type": message_type, "message": message}
+        message = {"peer": socket.gethostname(), "type": message_type, "message": message}
         message = json.dumps(message)
 
         _broadcast(message)
@@ -41,6 +41,12 @@ class Broadcast(metaclass=ABCMeta):
     @abstractmethod
     def broadcast_listener(self):
         pass
+
+
+class IBroadcastHandler(metaclass=ABCMeta):
+    """
+    An interface for providing the deliver event of a broadcast protocol
+    """
 
     @abstractmethod
     def deliver(self, message):
