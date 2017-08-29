@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 import socket, json
-from byzantinerandomizedconsensus.utils.enumencoder import EnumEncoder
+
 
 class Broadcast(metaclass=ABCMeta):
     """
@@ -10,7 +10,8 @@ class Broadcast(metaclass=ABCMeta):
 
     BUFFER_SIZE = 1024
 
-    def __init__(self, peer_list):
+    def __init__(self, host_address, peer_list):
+        self.host = host_address
         self.peers = peer_list
 
     def broadcast(self, message_type, message):
@@ -33,8 +34,8 @@ class Broadcast(metaclass=ABCMeta):
                 broadcast_client.shutdown(socket.SHUT_RD)
                 broadcast_client.close()
 
-        message = {"peer": socket.gethostname(), "type": message_type, "message": message}
-        message = json.dumps(message, cls=EnumEncoder)
+        message = {"peer": self.host[0], "type": message_type, "message": message}
+        message = json.dumps(message)
 
         _broadcast(message)
 
