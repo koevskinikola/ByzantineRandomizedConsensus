@@ -2,7 +2,7 @@ from byzantinerandomizedconsensus.base.consensus import IConsensusHandler
 from byzantinerandomizedconsensus.core.byzantinerandomizedconsensus import ByzantineRandomizedConsensus
 
 
-class Test(IConsensusHandler):
+class BRCTest(IConsensusHandler):
 
     def __init__(self):
 
@@ -26,3 +26,6 @@ class Test(IConsensusHandler):
 
     def decide(self, message):
         print("Consensus protocol decided on message: " + message[4] + " from node: " + message[0])
+
+
+test = BRCTest()

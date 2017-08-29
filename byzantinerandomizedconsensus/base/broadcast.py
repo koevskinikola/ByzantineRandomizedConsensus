@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 import socket, json
-
+from byzantinerandomizedconsensus.utils.enumencoder import EnumEncoder
 
 class Broadcast(metaclass=ABCMeta):
     """
@@ -34,7 +34,7 @@ class Broadcast(metaclass=ABCMeta):
                 broadcast_client.close()
 
         message = {"peer": socket.gethostname(), "type": message_type, "message": message}
-        message = json.dumps(message)
+        message = json.dumps(message, cls=EnumEncoder)
 
         _broadcast(message)
 

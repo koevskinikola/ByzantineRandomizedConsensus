@@ -1,20 +1,16 @@
 import json
 import socket
 import threading
-from enum import Enum
 
-from base.broadcast import Broadcast
+from byzantinerandomizedconsensus.base.broadcast import Broadcast
+from byzantinerandomizedconsensus.utils.messagetype import MessageType
+from byzantinerandomizedconsensus.utils.enumencoder import EnumEncoder
 
 
 class BRBroadcast(Broadcast):
     """
     Implements a Byzantine Fault Tolerant Reliable Broadcast protocol.
     """
-
-    class MessageType(Enum):
-        SEND = 1
-        ECHO = 2
-        READY = 3
 
     def __init__(self, total_nodes, faulty_nodes, host_port, peer_list, consensus_instance):
         """
@@ -28,7 +24,7 @@ class BRBroadcast(Broadcast):
         """
 
         # Make sure that N > 3f
-        assert total_nodes > 3*faulty_nodes
+        assert total_nodes > 3*faulty_nodes, "Number of nodes doesn't satisfy N>3f assumption"
 
         super().__init__(peer_list)
 
@@ -46,7 +42,7 @@ class BRBroadcast(Broadcast):
         # Keep delivered messages
         self.delivered_msgs = list()
 
-    def _broadcast_listener(self):
+    def broadcast_listener(self):
         """
         A TCP socket server for listening to incoming messages
 
@@ -66,25 +62,25 @@ class BRBroadcast(Broadcast):
             message = client.recv(BRBroadcast.BUFFER_SIZE)
             if not message:
                 print("Message was empty")
-            dict_msg = json.loads(message)
+            dict_msg = json.loads(message, object_hook=EnumEncoder.as_enum)
 
             # for local testing
-            peer_address = address[0] + ":" + address[1]
+            peer_address = address[0] + ":" + str(address[1])
             # for general use
             # peer_address = address[0]
 
             # if msg not already delivered
             if dict_msg["message"] not in self.delivered_msgs:
 
-                if dict_msg["type"] == BRBroadcast.MessageType.SEND and dict_msg["message"] not in self.echo_sent_list:
+                if dict_msg["type"] == MessageType.SEND and dict_msg["message"] not in self.echo_sent_list:
 
                     # insert message in dictionary (set ECHO flag to sent)
                     self.echo_sent_list[dict_msg["message"]] = set()
 
                     # broadcast ECHO msg
-                    self.broadcast(BRBroadcast.MessageType.ECHO, dict_msg["message"])
+                    self.broadcast(MessageType.ECHO, dict_msg["message"])
 
-                elif dict_msg["type"] == BRBroadcast.MessageType.ECHO:
+                elif dict_msg["type"] == MessageType.ECHO:
 
                     # in case a SEND msg was not received, but ECHO received
                     if dict_msg["message"] not in self.echo_sent_list:
@@ -98,9 +94,9 @@ class BRBroadcast(Broadcast):
                         if len(self.echo_sent_list[dict_msg["message"]]) > (self.N + self.f) / 2 and dict_msg["message"] not in self.ready_sent_list:
                             self.ready_sent_list[dict_msg["message"]] = set()
                             # broadcast ready msg
-                            self.broadcast(BRBroadcast.MessageType.READY, dict_msg["message"])
+                            self.broadcast(MessageType.READY, dict_msg["message"])
 
-                elif dict_msg["type"] == BRBroadcast.MessageType.READY:
+                elif dict_msg["type"] == MessageType.READY:
 
                     # in case a SEND and ECHO msgs were not received, but READY received
                     if dict_msg["message"] not in self.ready_sent_list:
@@ -119,13 +115,13 @@ class BRBroadcast(Broadcast):
 
                         # in case a SEND and ECHO msgs were not received, but f READY msgs received, send READY msg
                         elif dict_msg["message"] not in self.echo_sent_list and len(self.ready_sent_list[dict_msg["message"]]) > self.f:
-                            self.broadcast(BRBroadcast.MessageType.READY, dict_msg["message"])
+                            self.broadcast(MessageType.READY, dict_msg["message"])
 
-    def broadcast_listener(self):
-        """
-        Listens for arriving messages from other nodes in the network.
-        Runs on a separate thread.
-
-        :return:
-        """
-        threading.Thread(target=self._broadcast_listener).start()
+    # def broadcast_listener(self):
+    #     """
+    #     Listens for arriving messages from other nodes in the network.
+    #     Runs on a separate thread.
+    #
+    #     :return:
+    #     """
+    #     threading.Thread(target=self._broadcast_listener).start()

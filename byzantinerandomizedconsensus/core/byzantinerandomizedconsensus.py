@@ -1,22 +1,17 @@
 import queue
 import random
 import socket
-from enum import Enum
 
-from base.broadcast import IBroadcastHandler
-from base.consensus import Consensus
-from core.brbroadcast import BRBroadcast
+from byzantinerandomizedconsensus.utils.messagetype import MessageType
+from byzantinerandomizedconsensus.base.broadcast import IBroadcastHandler
+from byzantinerandomizedconsensus.base.consensus import Consensus
+from byzantinerandomizedconsensus.core.brbroadcast import BRBroadcast
 
 
 class ByzantineRandomizedConsensus(Consensus, IBroadcastHandler):
     """
     Implements a Byzantine Fault Tolerant Randomized Consensus Broadcast protocol.
     """
-
-    class MessageType(Enum):
-        PHASE1 = 1
-        PHASE2 = 2
-        NONE = -1
 
     def __init__(self, total_nodes, faulty_nodes, peer_list, brb_port, consensus_user):
 
@@ -37,7 +32,7 @@ class ByzantineRandomizedConsensus(Consensus, IBroadcastHandler):
         self.brb.broadcast_listener()
 
         # for local testing
-        self.host_address = socket.gethostname() + ":" + self.brb.port
+        self.host_address = socket.gethostname() + ":" + str(self.brb.port)
         # for general use
         # self.host_address = socket.gethostname()
 
@@ -51,9 +46,9 @@ class ByzantineRandomizedConsensus(Consensus, IBroadcastHandler):
         self.phase = 1
 
         #
-        self.brb.broadcast(BRBroadcast.MessageType.SEND,
+        self.brb.broadcast(MessageType.SEND,
                            (self.host_address,
-                            self.round, self.MessageType.PHASE1, message))
+                            self.round, MessageType.PHASE1, message))
 
     def deliver(self, message):
         if message[4] not in self.message_values:
@@ -67,7 +62,7 @@ class ByzantineRandomizedConsensus(Consensus, IBroadcastHandler):
             for key, val in self.message_values:
                 if len(val) > bound:
                     return key
-            return self.MessageType.NONE
+            return MessageType.NONE
 
         # End of Phase-1
         if self.value_count > (self.N - self.f) and self.phase == 1:
@@ -78,16 +73,16 @@ class ByzantineRandomizedConsensus(Consensus, IBroadcastHandler):
             self.message_values.clear()
             self.received_values.clear()
 
-            self.brb.broadcast(BRBroadcast.MessageType.SEND,
+            self.brb.broadcast(MessageType.SEND,
                                (socket.gethostname() + ":" + self.brb.port,
-                                self.round, self.MessageType.PHASE2, proposal))
+                                self.round, MessageType.PHASE2, proposal))
 
         # End of Phase-2
         if self.value_count > (self.N - self.f) and self.phase == 2:
             decision = get_max_val(2 * self.f)
-            if decision == self.MessageType.NONE:
+            if decision == MessageType.NONE:
                 decision = get_max_val(self.f)
-                if decision == self.MessageType.NONE:
+                if decision == MessageType.NONE:
                     decision = random.sample(self.received_values, 1)
             else:
                 self.consensus_user.decide(decision)
@@ -99,6 +94,6 @@ class ByzantineRandomizedConsensus(Consensus, IBroadcastHandler):
             self.received_values.clear()
 
             # send decision as next round proposal to help undecided nodes
-            self.brb.broadcast(BRBroadcast.MessageType.SEND,
+            self.brb.broadcast(MessageType.SEND,
                                (self.host_address,
-                                self.round, self.MessageType.PHASE1, decision))
+                                self.round, MessageType.PHASE1, decision))

@@ -3,7 +3,7 @@ import socket
 import threading
 from enum import Enum
 
-from base.broadcast import Broadcast
+from byzantinerandomizedconsensus.base.broadcast import Broadcast
 
 
 class BEBroadcast(Broadcast):
