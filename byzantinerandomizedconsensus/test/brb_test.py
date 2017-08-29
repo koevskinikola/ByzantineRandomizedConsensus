@@ -1,29 +1,27 @@
 from byzantinerandomizedconsensus.base.broadcast import IBroadcastHandler
 from byzantinerandomizedconsensus.core.brbroadcast import BRBroadcast
-from byzantinerandomizedconsensus.utils.messagetype import MessageType
 
 
-class BRCTest(IBroadcastHandler):
+class BRBTest(IBroadcastHandler):
     def deliver(self, message):
         print(message)
 
-host = "127.0.0.1"
+host = "localhost"
 N = 4
 f = 1
 peer_list = list()
 nodes = list()
 
-for port in range(7000, (7000 + N)):
+for port in range(5000, (5000 + N)):
     peer_list.append((host, port))
 
-node = BRBroadcast(N, f, 7000, peer_list, BRCTest())
-node.broadcast_listener()
+for peer in peer_list:
+    nodes.append(BRBroadcast(N, f, peer, peer_list, BRBTest()))
 
-# for peer in peer_list:
-#     nodes.append(BRBroadcast(N, f, peer[1], peer_list, BRCTest()))
-#
-# for node in nodes:
-#     node.broadcast_listener()
-#
-# for node in nodes:
-#     node.broadcast(MessageType.SEND, "TEST")
+for node in nodes:
+    node.broadcast_listener()
+
+i = 0
+for node in nodes:
+    i = i+1
+    node.broadcast(BRBroadcast.SEND, "TEST " + str(i))
